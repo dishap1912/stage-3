@@ -117,6 +117,31 @@ header h1{animation:glow 3.5s ease-in-out infinite alternate,in 1.2s both,gl 7s 
 textarea:focus{animation:fg 1.6s infinite}
 @keyframes fg{50%{box-shadow:0 0 24px rgba(53,230,255,.6)}}
 @media(prefers-reduced-motion:reduce){*{animation-iteration-count:1!important}.beam,.sat,.flare{display:none}}
+
+#center{max-width:880px}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.box{border-radius:6px;transition:box-shadow .3s}
+.box textarea{min-height:76px}
+.box.ok textarea{border-color:var(--ok);box-shadow:0 0 14px rgba(93,255,176,.4)}
+#timebar{display:flex;align-items:center;gap:16px;margin:4px 0 10px}
+#timer{font:700 clamp(28px,4.5vw,40px) var(--d);color:var(--cy);letter-spacing:.1em;text-shadow:0 0 14px rgba(53,230,255,.6)}
+#timer.low{color:var(--am);text-shadow:0 0 14px rgba(255,180,58,.6)}
+#timer.crit{color:#ff5a4d;text-shadow:0 0 14px rgba(255,90,77,.7);animation:bl .6s infinite}
+#start{border-color:var(--cy);background:linear-gradient(90deg,rgba(53,230,255,.28),rgba(53,230,255,.06))}
+.st{font:700 12px var(--d);min-height:16px;margin-top:8px;color:var(--ok);letter-spacing:.1em}
+.st.err{color:var(--am)}
+.v{position:relative;overflow:hidden;animation:pb 2.4s ease-in-out infinite}
+.v::after{content:"";position:absolute;top:0;left:-60%;width:40%;height:100%;background:linear-gradient(90deg,transparent,rgba(255,255,255,.4),transparent);transform:skewX(-20deg);animation:sh 3s infinite}
+#ov.fail h1{text-shadow:0 0 30px var(--am),0 0 70px var(--am)}
+#ov.fail p{color:var(--am)}
+.v{clip-path:polygon(14px 0,100% 0,calc(100% - 14px) 100%,0 100%);border:none;padding:14px 30px 14px 26px;background:linear-gradient(100deg,#0aa7d6,#35e6ff 55%,#7af0ff);color:#021018;letter-spacing:.22em;display:inline-flex;align-items:center;gap:12px;animation:vp 2s ease-in-out infinite}
+@keyframes vp{50%{filter:brightness(1.3)}}
+.v:hover:not(:disabled){filter:brightness(1.35);transform:translateY(-1px)}
+.v:disabled{background:linear-gradient(100deg,#2a3b4d,#3a4f66);color:#7f9bb8;animation:none}
+.ic{width:12px;height:12px;border-radius:50%;border:2px solid currentColor;position:relative;flex:none}
+.ic::after{content:"";position:absolute;inset:-6px;border:2px solid currentColor;border-radius:50%;animation:rp 1.4s infinite}
+@keyframes rp{from{transform:scale(.6);opacity:.9}to{transform:scale(1.4);opacity:0}}
+@media(max-width:860px){.two{grid-template-columns:1fr}}
 </style></head><body>
 <div id="scene"><div id="bgw"><div id="bg"></div></div><div class="neb n1"></div><div class="neb n2"></div><div class="core"></div><canvas id="stars"></canvas><div class="beam"></div><div class="flare"></div><div class="orb o1"></div><div class="orb o2"></div><div class="sat"></div><div class="vig"></div><div class="scanl"></div></div>
 <div id="ui">
@@ -125,17 +150,16 @@ textarea:focus{animation:fg 1.6s infinite}
 <aside class="panel"><h2>MISSION BRIEFING</h2><ul><li><span>01</span>Type your phrase exactly.</li><li><span>02</span>Verify to end the mission.</li></ul></aside>
 <section id="center"><div class="panel" id="phr"><div class="scan"></div>
 <h2>FINAL MISSION PROTOCOL</h2>
-<p>Enter your team's assigned mission phrase exactly to terminate the mission.</p>
-<label for="inp">MISSION PHRASE</label>
-<textarea id="inp" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="TYPE MISSION PHRASE…"></textarea>
-<div class="btns"><button id="go">VERIFY PHRASE</button><button class="sm" id="dash" title="Insert em dash">—</button></div>
+<div id="timebar"><div id="timer">03:00</div><button id="start">START</button></div>
+<p>Enter your team's two assigned mission phrases exactly to terminate the mission.</p>
+<div class="two"><div class="box" id="b1"><label for="i1">MISSION PHRASE 1</label><textarea id="i1" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="TYPE PHRASE 1…" disabled></textarea><div class="btns"><button class="v" data-k="0" disabled><span class="ic"></span>TRANSMIT</button><button class="sm d" data-k="0" disabled>—</button></div><div class="st" id="s1"></div></div><div class="box" id="b2"><label for="i2">MISSION PHRASE 2</label><textarea id="i2" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="TYPE PHRASE 2…" disabled></textarea><div class="btns"><button class="v" data-k="1" disabled><span class="ic"></span>TRANSMIT</button><button class="sm d" data-k="1" disabled>—</button></div><div class="st" id="s2"></div></div></div>
 <div id="msg" role="status" aria-live="polite"></div></div></section>
 <aside class="panel"><h2>MISSION STATUS</h2>
 <div class="row"><span>MISSION</span><b id="ms">ACTIVE</b></div>
 <div class="row"><span>PHRASE</span><b id="ps">AWAITING MISSION PHRASE</b></div></aside>
 </main></div>
 <div id="ov" aria-live="assertive"><i class="er"></i><i class="er"></i><i class="er"></i>
-<h1 id="ovh">GAME ENDED</h1><p>MISSION COMPLETE — TEAM SUCCESSFULLY TERMINATED THE MISSION.</p></div>
+<h1 id="ovh">GAME ENDED</h1><p id="ovp">MISSION COMPLETE — TEAM SUCCESSFULLY TERMINATED THE MISSION.</p></div>
 <canvas id="fx"></canvas>
 <script>
 /* ===== CONFIG: edit freely. Each team is bound to one phrase by index (fixed, never random). ===== */
@@ -154,41 +178,61 @@ const PHRASES=[
 const HOLD_MS=3000,KEY="bh_stage3_v1";
 /* ===== state ===== */
 const $=id=>document.getElementById(id);
-const inp=$("inp"),go=$("go"),msg=$("msg"),phr=$("phr"),ov=$("ov");
-let st={done:{}},busy=false;
+const msg=$("msg"),phr=$("phr"),ov=$("ov"),tm=$("timer"),startBtn=$("start"),T=180;
+const I=[$("i1"),$("i2")],S=[$("s1"),$("s2")],B=[$("b1"),$("b2")],V=[...document.querySelectorAll(".v")],D=[...document.querySelectorAll(".d")];
+let st={done:{}},busy=false,running=false,iv=null,got=[null,null];
 try{const s=JSON.parse(localStorage.getItem(KEY));if(s&&s.done)st=s}catch(e){}
 const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(st))}catch(e){}};
 const current=()=>({id:"TEAM-"+(Object.keys(st.done).length+1)}); /* unlimited teams */
 const norm=s=>s.trim().replace(/^\d+\s*[.)\-:]\s*/,"").replace(/[\u2012-\u2015\u2212\-]+/g,"-").replace(/\s*-\s*/g," - ").replace(/\s+/g," ").toUpperCase().trim();
 const VALID=PHRASES.map(norm);
+const fmt=s=>String(Math.floor(s/60)).padStart(2,"0")+":"+String(s%60).padStart(2,"0");
 function setMsg(t,c){msg.textContent=t;msg.className=c||""}
+function enable(k,on){I[k].disabled=V[k].disabled=D[k].disabled=!on}
+function showTime(l){tm.textContent=fmt(l);tm.className=l<=10?"crit":l<=60?"low":""}
 function render(){
+ got=[null,null];running=false;
+ [0,1].forEach(k=>{I[k].value="";S[k].textContent="";S[k].className="st";B[k].classList.remove("ok");enable(k,false)});
+ showTime(T);startBtn.disabled=false;startBtn.textContent="START";
  $("ms").textContent="ACTIVE";$("ps").textContent="AWAITING MISSION PHRASE";
- inp.disabled=go.disabled=$("dash").disabled=false;
 }
-function verify(){
- if(busy)return;const t=current();if(!t)return;
- const v=norm(inp.value);if(!v){setMsg("ENTER A PHRASE","err");return}
- if(!VALID.includes(v)){
-  setMsg("ACCESS DENIED — PHRASE INCORRECT","err");$("ps").textContent="PHRASE INCORRECT";
-  phr.classList.remove("warn");void phr.offsetWidth;phr.classList.add("warn");return}
- busy=true;inp.disabled=go.disabled=$("dash").disabled=true;
- st.done[t.id]=Date.now();save(); /* record BEFORE advancing */
- phr.classList.add("scanning");setMsg("SCANNING…");$("ps").textContent="VERIFYING";
- setTimeout(()=>{
-  phr.classList.remove("scanning");setMsg("PHRASE VERIFIED","ok");$("ps").textContent="PHRASE VERIFIED";$("ms").textContent="TERMINATED";
-  ov.classList.add("on");burst();
+function begin(){
+ running=true;startBtn.disabled=true;startBtn.textContent="RUNNING";
+ [0,1].forEach(k=>{if(!got[k])enable(k,true)});
+ $("ps").textContent="MISSION RUNNING";iv=setInterval(tick,250);tick();
+}
+function tick(){
+ const l=Math.max(0,Math.ceil((st.run.at+T*1000-Date.now())/1000));showTime(l);
+ if(l<=0)endRound(false);
+}
+startBtn.onclick=()=>{if(busy||running)return;st.run={id:current().id,at:Date.now(),got:[null,null]};save();begin();(I[0].focus())};
+function verify(k){
+ if(!running||busy||got[k])return;const v=norm(I[k].value);
+ if(!v){S[k].textContent="ENTER A PHRASE";S[k].className="st err";return}
+ if(!VALID.includes(v)){S[k].textContent="ACCESS DENIED — PHRASE INCORRECT";S[k].className="st err";
+  B[k].classList.remove("warn");void B[k].offsetWidth;B[k].classList.add("warn");return}
+ if(got[1-k]===v){S[k].textContent="ALREADY USED — ENTER A DIFFERENT PHRASE";S[k].className="st err";return}
+ got[k]=v;st.run.got=got;save();markOk(k);
+ if(got[0]&&got[1])endRound(true);
+}
+function markOk(k){B[k].classList.add("ok");S[k].textContent="✔ PHRASE VERIFIED";S[k].className="st";enable(k,false)}
+function endRound(ok){
+ if(busy)return;busy=true;clearInterval(iv);running=false;
+ const id=current().id;st.done[id]=Date.now();if(!ok){st.fail=st.fail||{};st.fail[id]=1}delete st.run;save(); /* record BEFORE advancing */
+ [0,1].forEach(k=>enable(k,false));startBtn.disabled=true;
+ const finish=()=>{
   setTimeout(()=>{ov.classList.remove("on");
-   setTimeout(()=>{inp.value="";render();
-    if(current()){setMsg("READY FOR NEXT TEAM","ok");$("ps").textContent="READY FOR NEXT TEAM";
-     setTimeout(()=>{setMsg("");$("ps").textContent="AWAITING MISSION PHRASE";busy=false;inp.focus()},1600)}
-    else busy=false;
-   },650)},HOLD_MS);
- },1150);
+   setTimeout(()=>{ov.classList.remove("fail");$("ovh").textContent="GAME ENDED";$("ovp").textContent="MISSION COMPLETE — TEAM SUCCESSFULLY TERMINATED THE MISSION.";
+    render();setMsg("READY FOR NEXT TEAM","ok");$("ps").textContent="READY FOR NEXT TEAM";
+    setTimeout(()=>{setMsg("");$("ps").textContent="AWAITING MISSION PHRASE";busy=false},1600)},650)},HOLD_MS)};
+ if(ok){phr.classList.add("scanning");setMsg("SCANNING…");$("ps").textContent="VERIFYING";
+  setTimeout(()=>{phr.classList.remove("scanning");setMsg("BOTH PHRASES VERIFIED","ok");$("ms").textContent="TERMINATED";
+   ov.classList.add("on");burst();finish()},1150)}
+ else{setMsg("TIME UP","err");$("ms").textContent="TIME UP";$("ovh").textContent="TIME UP";$("ovp").textContent="MISSION FAILED — TIME RAN OUT.";ov.classList.add("fail","on");finish()}
 }
-go.onclick=verify;
-inp.addEventListener("keydown",e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();verify()}});
-$("dash").onclick=()=>{inp.value+="—";inp.focus()};
+V.forEach(b=>b.onclick=()=>verify(+b.dataset.k));
+D.forEach(b=>b.onclick=()=>{const k=+b.dataset.k;I[k].value+="—";I[k].focus()});
+I.forEach((el,k)=>el.addEventListener("keydown",e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();verify(k)}}));
 /* organizer reset: Ctrl+Shift+X */
 addEventListener("keydown",e=>{if(e.ctrlKey&&e.shiftKey&&e.key.toLowerCase()==="x"&&confirm("Organizer: erase ALL Stage 3 progress?")){st={done:{}};save();location.reload()}});
 /* ===== visuals ===== */
@@ -215,5 +259,6 @@ function burst(){
   for(const p of P){p.x+=p.vx;p.y+=p.vy;p.vx*=.97;p.vy*=.97;p.l-=.012;if(p.l>0){x.fillStyle="rgba("+p.h+","+p.l+")";x.beginPath();x.arc(p.x,p.y,2.6,0,6.283);x.fill()}}
   if(e<3400)requestAnimationFrame(f);else x.clearRect(0,0,c.width,c.height)})(t0)}
 render();
+if(st.run&&st.run.id===current().id){got=st.run.got||[null,null];begin();[0,1].forEach(k=>{if(got[k])markOk(k)})}
 (function(){const p=document.querySelector("#phr p");if(RM)return;const t=p.textContent;p.style.minHeight=p.offsetHeight+"px";p.textContent="";let i=0;setTimeout(function k(){p.textContent=t.slice(0,++i);if(i<t.length)setTimeout(k,24)},900)})();
 </script></body></html>
